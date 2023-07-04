@@ -11,8 +11,8 @@ class DuckDuckGo:
     }
 
 
-    def __init__(self, full_name: str):
-        result = requests.get(self.URL.format(full_name))
+    def __init__(self, entity: str):
+        result = requests.get(self.URL.format(entity))
         self.result = json.loads(result.content.decode('utf-8'))
         self.twitter_account = self.from_infobox('twitter_profile')
         self.facebook_account = self.from_infobox('facebook_profile')

@@ -1,3 +1,4 @@
+import re
 import requests
 import mwparserfromhell
 
@@ -14,23 +15,37 @@ class Wikipedia:
         'prop': 'revisions',
     }    
 
+    REMOVE_KEYS = [
+        r'.*PIE.*', 
+        r'.*ESCUDO.*', 
+        r'.*PRESIDEN.*',
+        r'.*SUBTÍTULO.*',
+        r'.*DATA.*',
+        r'.*SUCESOR.*',
+        r'.*PREDECESOR.*',
+        r'.*EXCÓNYUGE.*',
+        r'.*TAMAÑO.*',
+        r'.*DESCRIPCIÓN.*',
+        r'.*NOTAS.*',
+        r'.*FIRMA.*',
+        r'.*TRATAMIENTO.*',
+        r'.*JUNTOA.*',
+    ]
+
     
-    def __init__(self, page_info):
-        self.id = str(page_info['pageid'])
-        self.url = page_info['url']
-        self.title = page_info['title']
+    def __init__(self, entity):
+        self.entity = entity
 
     @classmethod
-    def search(cls, full_name):
-        formatted = full_name.replace(" ", "_")
-        print(f"Buscando en API de Wikipedia: {full_name}")
+    def search(cls, entity):
+        print(f"Buscando en API de Wikipedia: {entity}")
         params = cls.API_PARAMS.copy()
-        params.update({'titles': full_name})
+        params.update({'titles': entity})
         data = requests.get(cls.API_URL, params=params).json()
         if not data: return []
         pages = []
         for v in list(data['query']['pages'].values()):
-            v['url'] = f'https://es.wikipedia.org/wiki/{formatted}'
+            v['url'] = f'https://es.wikipedia.org/wiki/{entity}'
             pages.append(v)
         return pages
 
@@ -51,6 +66,7 @@ class Wikipedia:
 
         return infobox_dict
 
+
     def process_ficha(self, infobox_dict):
         ficha = {}
         any_ficha = [k for k in infobox_dict.keys() if 'ficha de' in k.lower()]
@@ -58,28 +74,44 @@ class Wikipedia:
             data = infobox_dict[any_ficha[0]]
             for k, v in data.items():
                 if k in data:
-                    ficha.update({f'WIKIPEDIA_{k.upper()}': v.split('|')[0]})
+                    ficha.update({f'WIKIPEDIA_{k.upper().replace(" ", "_")}': v.split('|')[0]})
         return ficha 
+    
+
+    def clean_ficha(self, wiki_ficha):
+        for k in list(wiki_ficha.keys()):
+            for regex in self.REMOVE_KEYS:
+                if re.match(regex, k) and k in wiki_ficha.keys():
+                    del wiki_ficha[k]
+        for i in range(10):
+            key = f'WIKIPEDIA_{i}'
+            if key in list(wiki_ficha.keys()):
+                del wiki_ficha[key]
+        return wiki_ficha    
 
     def get_info(self):
-        print(f"Buscando en API de Wikipedia: {self.id}")
+        print(f"Extrayendo desde API de Wikipedia: {self.entity}")
         response = {}
         params = self.API_PARAMS.copy()
         params.update({
-            "pageids": self.id,
+            'titles': self.entity,
             'rvsection': '0',
             'rvprop': 'content', 
-            'language': 'es',               
         })        
         data = requests.get(self.API_URL, params=params).json()
-        if not data: return response
+        if not data or not 'query' in data.keys(): return response
 
         # Obtener la información del infobox 
         pages = data['query']['pages']
-        revision = pages[self.id]['revisions'][0]['*']
+        page_id = list(pages.keys())[0]
+        
+        if not 'revisions' in pages[page_id]: return response
+        
+        revision = pages[page_id]['revisions'][0]['*']
         infobox_dict = self.mw_to_dict(revision)
         wiki_ficha = self.process_ficha(infobox_dict)
+        clean_ficha = self.clean_ficha(wiki_ficha)
 
-        return wiki_ficha
+        return clean_ficha
 
 
