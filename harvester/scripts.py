@@ -1,32 +1,119 @@
 import pandas as pd
+from selenium import webdriver
 
 from harvester.sources.wikipedia import Wikipedia
 from harvester.sources.wikidata import Wikidata
+from harvester.sources.google import Google
 
-sources = ['wikipedia', 'wikidata']
+def prepare_entities(entities:list) -> pd.DataFrame:
+    return pd.DataFrame({'entity': entities})
 
-def get_pages(entity:str):
-    pages = {}
-    wikipedia = Wikipedia.search(entity)
-    if wikipedia:
-        pages.update({'wikipedia': wikipedia[0]})
-    wikidata = Wikidata.search(entity)
-    if wikidata:
-        pages.update({'wikidata': wikidata[0]})
-    return pages
+def get_pages(entities:pd.DataFrame) -> pd.DataFrame:
+    """
+        Get pages links from wikipedia and wikidata
+        ----------
+        params
+            entities : pandas.DataFrame
+        -------
+        return pandas.DataFrame
+    """
 
-def collect(pages:dict):
-    data = {}
-    for k,v in pages.items():
-        if k == 'wikipedia':
-            wikipedia_page = Wikipedia(v)
-            data.update(wikipedia_page.get_info())
-        elif k == 'wikidata':
-            wikidata_page = Wikidata(v)
-            data.update(wikidata_page.get_info())            
-    return data
+    pages = {
+        'entity': [],
+        'WIKIPEDIA_URL': [],
+        'WIKIDATA_URL': []
+    }
+    for _, row in entities.iterrows():
+        formatted = row['entity'].replace(" ", "_")
+        pages['entity'].append(row['entity'])
+        
+        wikipedia = Wikipedia.search(formatted)
+        if wikipedia:
+            pages['WIKIPEDIA_URL'].append(wikipedia[0]['url'] if 'url' in wikipedia[0].keys() else '')
+        else:
+            pages['WIKIPEDIA_URL'].append('')
+        
+        wikidata = Wikidata.search(formatted)
+        if wikidata:
+            pages['WIKIDATA_URL'].append(wikidata[0]['url'] if 'url' in wikidata[0].keys() else '')
+        else:
+            pages['WIKIDATA_URL'].append('')
+
+    return pd.DataFrame(pages)
+
+def collect_from_wikipedia(pages_list:pd.DataFrame) -> pd.DataFrame:
+    """
+        Collect information from pages
+        ----------
+        params
+            pages_list : pandas.DataFrame
+            keyword : str
+        -------
+        return pandas.DataFrame              
+    """
+
+    datos = {}
+    for _, row in pages_list.iterrows():
+        formatted = row['entity'].replace(" ", "_")
+        datos[formatted] = {'entity': row['entity']}
+
+        # From wikipedia
+        if not pd.isna(row['WIKIPEDIA_URL']):
+            wikipedia_page = Wikipedia(formatted).get_info()
+            datos[formatted].update(wikipedia_page)    
+
+    df = pd.DataFrame(datos.values())
+    return df
+
+def collect_from_wikidata(pages_list:pd.DataFrame) -> pd.DataFrame:
+    """
+        Collect information from pages
+        ----------
+        params
+            pages_list : pandas.DataFrame
+            keyword : str
+        -------
+        return pandas.DataFrame              
+    """
+
+    datos = {}
+    for _, row in pages_list.iterrows():
+        formatted = row['entity'].replace(" ", "_")
+        datos[formatted] = {'entity': row['entity']}
+
+        # # From wikidata
+        if not pd.isna(row['WIKIDATA_URL']):
+            wikidata_page = Wikidata(row['WIKIDATA_URL']).get_info()
+            datos[formatted].update(wikidata_page)
+
+    df = pd.DataFrame(datos.values())
+    return df
 
 
-def download(data:list):
+def collect_from_google(entities:pd.DataFrame, keyword:str="") -> pd.DataFrame:
+    """
+        Collect information from pages
+        ----------
+        params
+            pages_list : pandas.DataFrame
+            keyword : str
+        -------
+        return pandas.DataFrame              
+    """
+    driver = webdriver.Firefox()
+    datos = {}
+    for _, row in entities.iterrows():
+        formatted = row['entity'].replace(" ", "_")
+        datos[formatted] = {'entity': row['entity']}
+
+        # From google
+        search = f"{row['entity']} {keyword}"
+        google_info = Google(search, driver).get_info()
+        datos[formatted].update(google_info)            
+    driver.quit()
+    df = pd.DataFrame(datos.values())
+    return df
+
+def download(data:list, name:str="output"):
     df = pd.DataFrame(data)
-    return df.to_csv('output.csv')
+    df.to_csv(f'{name}.csv', index=False)
