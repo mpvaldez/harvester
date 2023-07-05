@@ -45,8 +45,9 @@ class Wikipedia:
         if not data: return []
         pages = []
         for v in list(data['query']['pages'].values()):
-            v['url'] = f'https://es.wikipedia.org/wiki/{entity}'
-            pages.append(v)
+            if 'revisions' in v.keys():
+                v['url'] = f'https://es.wikipedia.org/wiki/{entity}'
+                pages.append(v)
         return pages
 
     @classmethod
