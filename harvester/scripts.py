@@ -27,13 +27,13 @@ def get_pages(entities:pd.DataFrame) -> pd.DataFrame:
         formatted = row['entity'].replace(" ", "_")
         pages['entity'].append(row['entity'])
         
-        wikipedia = Wikipedia.search(formatted)
+        wikipedia = Wikipedia.search(row['entity'])
         if wikipedia:
             pages['WIKIPEDIA_URL'].append(wikipedia[0]['url'] if 'url' in wikipedia[0].keys() else '')
         else:
             pages['WIKIPEDIA_URL'].append('')
         
-        wikidata = Wikidata.search(formatted)
+        wikidata = Wikidata.search(row['entity'])
         if wikidata:
             pages['WIKIDATA_URL'].append(wikidata[0]['url'] if 'url' in wikidata[0].keys() else '')
         else:
