@@ -4,6 +4,7 @@ from selenium import webdriver
 from harvester.sources.wikipedia import Wikipedia
 from harvester.sources.wikidata import Wikidata
 from harvester.sources.google import Google
+from harvester.sources.duckduckgo import DuckDuckGo
 
 def prepare_entities(entities:list) -> pd.DataFrame:
     return pd.DataFrame({'entity': entities})
@@ -113,6 +114,35 @@ def collect_from_google(entities:pd.DataFrame, keyword:str="") -> pd.DataFrame:
     driver.quit()
     df = pd.DataFrame(datos.values())
     return df
+
+
+def collect_from_duckduckgo(entities:pd.DataFrame, keyword:str="") -> pd.DataFrame:
+    """
+        Collect information from duckduckgo
+        ----------
+        params
+            pages_list : pandas.DataFrame
+            keyword : str
+        -------
+        return pandas.DataFrame              
+    """
+    driver = webdriver.Firefox()
+    datos = {}
+    for _, row in entities.iterrows():
+        formatted = row['entity'].replace(" ", "_")
+        datos[formatted] = {'entity': row['entity']}
+
+        search = f"{row['entity']} {keyword}"
+        duckduckgo_info = DuckDuckGo(search, driver).get_info()
+        datos[formatted].update(duckduckgo_info)            
+    driver.quit()
+    df = pd.DataFrame(datos.values())
+    return df
+
+
+
+
+
 
 def download(data:list, name:str="output"):
     df = pd.DataFrame(data)

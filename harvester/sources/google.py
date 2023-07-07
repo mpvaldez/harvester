@@ -1,5 +1,3 @@
-from urllib.parse import urlparse
-
 from selenium.webdriver.common.by import By
 
 class Google:
@@ -10,7 +8,8 @@ class Google:
         'twitter.com': 'USER_TWITTER',
         'facebook.com': 'USER_FACEBOOK',
         'instagram.com': 'USER_INSTAGRAM',
-        'youtube.com': 'USER_YOUTUBE',
+        'linkedin.com': 'USER_LINKEDIN',
+        'wikipedia.org': 'PAGE_WIKIPEDIA',
     }
 
     def __init__(self, search, driver):
@@ -21,16 +20,13 @@ class Google:
     def get_info(self):
         print(f"Buscando en Google: {self.search}")
         self.driver.get(self.BASE_URL+self.search)
-        self.driver.implicitly_wait(5)
         response = {}
-        for k, v in self.PROPERTIES.items():
-            try:
-                elements = self.driver.find_elements(By.TAG_NAME, "a")
-                links = list(set([el.get_attribute('href').split("?")[0] for el in elements if el.get_attribute('href')]))
-                for link in links:
-                    if k in link:
+        results = self.driver.find_elements(By.CSS_SELECTOR, '.g')
+        for result in results:
+            link = result.find_element(By.CSS_SELECTOR, 'a')
+            url = link.get_attribute('href')
+            for k, v in self.PROPERTIES.items():
+                if url:
+                    if k in url:
                         response.update({f'GOOGLE_{v}': link})
-                        break
-            except:
-                print(f"Error al obtener información referenciada {v}")                
         return response

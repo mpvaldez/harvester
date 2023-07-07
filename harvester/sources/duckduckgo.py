@@ -1,32 +1,38 @@
-import json
-import requests
+from selenium.webdriver.common.by import By
 
 class DuckDuckGo:
 
-    URL = 'https://api.duckduckgo.com/?q={}&format=json'
-    BASES = {
-        'twitter_profile':'https://twitter.com/',
-        'facebook_profile':'https://facebook.com/',
-        'instagram_account':'https://instagram.com/',
+    BASE_URL = 'https://duckduckgo.com/?q='
+
+    PROPERTIES = {
+        'twitter.com': 'USER_TWITTER',
+        'facebook.com': 'USER_FACEBOOK',
+        'instagram.com': 'USER_INSTAGRAM',
+        'linkedin.com': 'USER_LINKEDIN',
+        'wikipedia.org': 'PAGE_WIKIPEDIA',
     }
 
 
-    def __init__(self, entity: str):
-        result = requests.get(self.URL.format(entity))
-        self.result = json.loads(result.content.decode('utf-8'))
-        self.twitter_account = self.from_infobox('twitter_profile')
-        self.facebook_account = self.from_infobox('facebook_profile')
-        self.instagram_account = self.from_infobox('instagram_account')
-        self.wikipedia_page = self.result['AbstractURL'] or None
-
-
-    def from_infobox(self, point):
-        if not self.result["Infobox"]:
-            return
-        value = next((item["value"] for item in self.result["Infobox"]["content"] if item["data_type"] == point), None)
-        if not value:
-            return 
-        return self.BASES[point]+value
-
-
-
+    def __init__(self, search, driver):
+        self.search = search
+        self.driver = driver
+        
+        
+    def get_info(self):
+        print(f"Buscando en DuckDuckGo: {self.search}")
+        self.driver.get(self.BASE_URL+self.search)
+        response = {}
+        results = self.driver.find_elements(By.CSS_SELECTOR, '.react-results--main')
+        for result in results:
+            articles = result.find_elements(By.TAG_NAME, 'article')
+            for article in articles:
+                links = article.find_elements(By.TAG_NAME, 'a')
+                for link in links:
+                    url = link.get_attribute('href')
+                    if not 'duckduckgo.com' in url:
+                        for k, v in self.PROPERTIES.items():
+                            if k in url:
+                                key = f'DUCKDUCKGO_{v}'
+                                if not key in response.keys():
+                                    response.update({key: url})
+        return response
